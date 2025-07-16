@@ -6,6 +6,8 @@ from concepts import add_to_learned, add_to_future_list
 from memory import update_memory
 from memory import get_learned_topics
 from concepts import get_to_learn_topics
+import json
+import os
 
 # --- Set page title and icon ---
 st.set_page_config(page_title="LearnPulse", page_icon="🧠")
@@ -113,12 +115,19 @@ with st.sidebar:
     # --- Free Text Q&A ---
     st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-title">💬 Ask a Question</div>', unsafe_allow_html=True)
+    qa_file = "qa_history.json"
     if "qa_history" not in st.session_state:
-        st.session_state.qa_history = []
+        if os.path.exists(qa_file):
+            with open(qa_file, "r") as f:
+                st.session_state.qa_history = json.load(f)
+        else:
+            st.session_state.qa_history = []
     user_question = st.text_input("Type your question and press Enter", key="free_text_qa")
     if user_question:
         answer = summarize_text(user_question, prompt_type="concept")
         st.session_state.qa_history.append((user_question, answer))
+        with open(qa_file, "w") as f:
+            json.dump(st.session_state.qa_history, f)
         st.experimental_rerun()
     for q, a in reversed(st.session_state.qa_history[-5:]):
         st.markdown(f"<b>You:</b> {q}", unsafe_allow_html=True)
