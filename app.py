@@ -17,6 +17,7 @@ if "step" not in st.session_state:
     st.session_state.summary = ""
     st.session_state.concepts = []
     st.session_state.selected_concept = ""
+    st.session_state.articles = []
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -109,6 +110,21 @@ with st.sidebar:
         st.markdown("_No topics saved for later._")
     st.markdown('</div>', unsafe_allow_html=True)
 
+    # --- Free Text Q&A ---
+    st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-title">💬 Ask a Question</div>', unsafe_allow_html=True)
+    if "qa_history" not in st.session_state:
+        st.session_state.qa_history = []
+    user_question = st.text_input("Type your question and press Enter", key="free_text_qa")
+    if user_question:
+        answer = summarize_text(user_question, prompt_type="concept")
+        st.session_state.qa_history.append((user_question, answer))
+        st.experimental_rerun()
+    for q, a in reversed(st.session_state.qa_history[-5:]):
+        st.markdown(f"<b>You:</b> {q}", unsafe_allow_html=True)
+        st.markdown(f"<b>LearnPulse:</b> {a}", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # --- App Header ---
 st.markdown('<div class="big-title">I’m LearnPulse</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Your AI-powered learning assistant for mastering new AI concepts. Get summaries, explore key topics, and track your progress—all in one place.</div>', unsafe_allow_html=True)
@@ -118,15 +134,23 @@ if st.session_state.step == "start":
     st.markdown('<div class="learn-btn">', unsafe_allow_html=True)
     if st.button("✅ I'm ready to learn"):
         articles = get_latest_articles()
-        article = random.choice(articles)
-        st.session_state.article = article
-        st.session_state.summary = summarize_text(article["content"], prompt_type="summary")
-        st.session_state.concepts = extract_concepts(article["content"])
-        add_message("user", "I'm ready to learn")
-        add_message("ai", f"Here’s a summary of: {article['title']}\n\n{st.session_state.summary}")
-        st.session_state.step = "summary"
+        st.session_state.articles = articles
+        st.session_state.step = "choose_article"
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
+
+# --- Article Selection Step ---
+if st.session_state.step == "choose_article":
+    st.subheader("📰 Choose an article to explore:")
+    for i, article in enumerate(st.session_state.articles):
+        if st.button(article["title"], key=f"article_{i}"):
+            st.session_state.article = article
+            st.session_state.summary = summarize_text(article["content"], prompt_type="summary")
+            st.session_state.concepts = extract_concepts(article["content"])
+            add_message("user", f"I want to learn about: {article['title']}")
+            add_message("ai", f"Here’s a summary of: {article['title']}\n\n{st.session_state.summary}")
+            st.session_state.step = "summary"
+            st.rerun()
 
 # --- STEP 2: Show Summary + Key Concepts ---
 if st.session_state.step == "summary":
@@ -162,10 +186,10 @@ if st.session_state.step == "concept":
         update_memory(st.session_state.article["title"], "yes")
         add_message("user", "That was helpful 👍")
         st.success("Awesome! I’ve added this to your learned topics.")
-        st.session_state.step = "start"
+        st.session_state.step = "choose_article"
 
     if st.button("👎 Not helpful"):
         update_memory(st.session_state.article["title"], "no")
         add_message("user", "That wasn’t helpful 👎")
         st.info("No worries — I’ll adjust next time.")
-        st.session_state.step = "start"
+        st.session_state.step = "choose_article"
